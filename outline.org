@@ -1,0 +1,31 @@
+* ML-Specific Optimizations 
+:Author: Łukasz Czapliński
+:Date: <2015-10-23 Fri>
+** Data Representation
+*** Records
+*** Data types
+**** Example
+**** Possible assumptions
+**** Abstract data-types
+**** Summary
+***** Tagged
+***** Constant
+***** Transparent 
+***** TransB (Transparent Boxed) 
+***** TransU (Transparent Unboxed) 
+***** Variable (same as tagged)
+***** VariableC (same as above)
+** Pattern matching
+*** Basics
+*** Decon
+*** Optimizations
+** Equality
+*** Simple case
+*** Enter polymorphism
+** Boxed and unboxed updates
+** Module system
+*** Purpose
+*** Syntax
+*** Implementation
+*** Functors
+*** Thinning

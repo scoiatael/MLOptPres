@@ -1,0 +1,20 @@
+* Presentation
+** Objectives
+*** Named records
+*** Datatypes
+*** Pattern matching
+*** Polymorphic equality
+*** Exceptions
+*** Module system
+** Need for same-length representation
+** Level 0: Pointers indistinguishable from integers
+*** Representation: Tagged
+*** Representation: Transparent
+** Level 1: Pointers distinguishable from small integers
+*** Representation: Constant
+*** Representation: TransB
+*** Representation: TransU
+** Level 2: All pointers distinguishable from all integers
+** Level 3: Pointers to records of different length distinguishable from each other
+** Conclusion: Diminishing returns
+** Choosing best solution
