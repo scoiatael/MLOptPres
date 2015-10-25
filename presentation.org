@@ -1,20 +1,157 @@
-* Presentation
-** Objectives
-*** Named records
-*** Datatypes
-*** Pattern matching
-*** Polymorphic equality
-*** Exceptions
-*** Module system
-** Need for same-length representation
-** Level 0: Pointers indistinguishable from integers
-*** Representation: Tagged
-*** Representation: Transparent
-** Level 1: Pointers distinguishable from small integers
-*** Representation: Constant
-*** Representation: TransB
-*** Representation: TransU
-** Level 2: All pointers distinguishable from all integers
-** Level 3: Pointers to records of different length distinguishable from each other
-** Conclusion: Diminishing returns
-** Choosing best solution
+* Objectives
+** Named records
+:note: Cartesian product of types
+** Data types
+:note: disjoint union of types
+** Pattern matching
+** Equality
+:note: 
+** Exceptions
+** Module system
+* Named records - Need for same-length representation
+* Data types
+** Examples
+#+BEGIN_SRC sml
+type posint = int (* positive integers *)
+datatype money = COIN of posint | BILL of posint
+    | CHECK of {amount:real, from: string}
+datatype color = RED | BLUE | GREEN | YELLOW
+datatype ’a list = nil | :: of ’a * ’a list
+datatype register = REG of int
+datatype tree = LEAF of int | TREE of tree * tree
+datatype xxx = M | N | P of int list
+datatype xxxp = M | N | P of tree
+datatype foo = F of int | O of tree
+datatype yyy = W of int * int | X of real * real * real
+datatype gen = A | B | C | D of int | E of real
+    | F of gen * gen | G of int * int * gen
+#+END_SRC
+** Assumption 0: Pointers indistinguishable from integers
+*** Tagged
+:note: Most verbose, default type of constructor
+*** Transparent
+:note: for example register
+** Assumption 1: Pointers distinguishable from small integers
+*** Constant
+:note: all constructors with 0 arguments
+*** Better transparent constructors 
+:note: for example xxx, there's no need to tag either (M, N: Constant, P just pointer to int list)
+**** TransB
+:note: single value-carrying constructor applied to always-boxed type
+:note: consider α list vs xxx (vs xxxp)
+**** TransU
+:note: value-carrying constructor applied to always-unboxed type
+:note: with all other constructors boxed
+:note: for example foo (Appel notes that Assumption 2 is needed - why?)
+** Assumption 2: All pointers distinguishable from all integers
+:note: allows for optimized tree (unboxed LEAF, TREE as two-value record)
+:note: might be needed by GC
+:note: need to tag/untag to perform arithmetic
+** Assumption 3: Pointers to records of different length distinguishable from each other
+:note: a lot of runtime tags, pattern-match needs to integrate with runtime closely
+:note: allows for optimized yyy (both pointers to records)
+:note: has some variations (like ground types being distinguishable at runtime, optimize gen)
+* Conclusion: Diminishing returns -  Choosing best solution
+:note: problem with optimizations and abstract types, functors, etc
+** Use only assumption 1
+** Constructors
+*** Tagged
+*** Constant
+*** Transparent
+*** TransB
+*** Exceptions handled separately
+**** Variable
+**** VariableC
+* Exceptions
+** Open type (unbounded number of constructors)
+:note: Cannot use Assumption 1! - 'small' number of integers might not suffice
+:note: use Tagged type - use string ref as tag to allow printing exceptions at top-level
+* Pattern matching
+** Match between value of expression and rule of pattern-expression list
+:note: pattern - constant, variable, tuple or patterns, or constructor applied to pattern
+:note: 
+#+BEGIN_SRC sml
+case a
+of (false, nil)   =>  nil
+| (true, w)    =>   w
+| (false, x::nil)  =>  x::x::nil
+| (false, y::z)  =>  z
+#+END_SRC
+:note: also, decide whether rules are exhaustive
+** Implementation
+:note: optimize decision tree - not an easy problem (NP-complete)
+* Equality
+** Two values must be of the same type
+** Structural equality 
+:note: two lists containing same values are equal
+:note: references must have the same address - simplifies cycles
+** Enter polymorphism
+:note: type of compared values might not be known at compile time, ex: member
+:note: need size of things at runtime! or add equality to every eqtype
+:note: that's the only place where this kind of tagging is need in SMLNJ
+:note: also, that's expensive.
+* Unboxed updates
+:note: it might be useful for compiler later to know whether ref cell will contain only integers
+:note: also, it's useful to know if update will only write integer values
+:note: conservative approach
+* Modules and Functors
+** Help with structuring large programs
+** Separate compilation units
+** Generic library units
+#+BEGIN_SRC sml
+structure Stack1 =
+    struct type ’a stack = ’a list
+    exception Empty
+    fun push(a,s) = a::s
+    fun top(a::rest) = a | top(nil) = raise Empty
+    fun pop(a::rest) = rest | pop(nil) = raise Empty
+    val empty = nil
+end
+#+END_SRC
+** Can export only some declarations using signatures
+#+BEGIN_SRC sml
+signature STACK =
+    sig   type ’a stack
+    exception Empty
+    val empty : ’a stack
+    val push: ’a * ’a stack -> ’a stack
+    val top : ’a stack -> ’a
+    val pop : ’a stack -> ’a stack
+end
+
+structure Stack2 : STACK =
+    struct datatype ’a stack = empty | push of ’a * ’a stack
+    val extra = print "hello"
+    exception Empty = Match
+    fun top(push(a,rest)) = a
+    fun pop(push(a,rest)) = rest
+end
+#+END_SRC
+** Functors are modules parametrized by signatures
+#+BEGIN_SRC sml
+functor F(S : STACK) = struct  
+    val em = S.empty
+end
+structure T = F(Stack2)
+#+END_SRC
+** Implementation
+*** Modules -> Records
+:note: Stack1 -> (Empty, push, top, pop, empty)
+:note: STACK -> (Empty, empty, push, top, pop)
+:note: application of STACK to Stack1 requires reordering fields in record, based on names
+:note: application of STACK to Stack2 requires removal of field `extra` -> though it still needs to be evaluated
+:note: also, it requires turning push into function (from data constructor)
+*** Functors -> Functions
+:note: thinning
+*** To sum up: linker and runtime system have no idea of module system! 
+* Our approach and problems
+#+BEGIN_SRC tuareg
+type con =
+    | C_Tagged of int
+    | C_Transparent
+    | C_TransU
+    | C_TransB
+#+END_SRC
+
+#  LocalWords:  Functors TransB TransU functors runtime unboxed polymorphism
+#  LocalWords:  parametrized

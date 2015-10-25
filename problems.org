@@ -1,0 +1,7 @@
+* No constant constructor? Con of con * expr , why not expr option
+* Exceptions as Tagged datatypes?
+* *Exn instructions for lambda language - usage?
+* No modules?
+* Implementing equality - how to express need for runtime function?
+* Slides.
+
