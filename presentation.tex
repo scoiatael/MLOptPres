@@ -1,0 +1,344 @@
+% Created 2015-10-25 Sun 21:29
+\documentclass[presentation]{beamer}
+\usetheme{Madrid}
+
+\beamertemplatenavigationsymbolsempty
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{fixltx2e}
+\usepackage{graphicx}
+\usepackage{grffile}
+\usepackage{longtable}
+\usepackage{wrapfig}
+\usepackage{rotating}
+\usepackage[normalem]{ulem}
+\usepackage{amsmath}
+\usepackage{textcomp}
+\usepackage{amssymb}
+\usepackage{capt-of}
+\usepackage{hyperref}
+\usepackage{fontspec}
+\usepackage{minted}
+
+
+\date{\today}
+\title{ML-specific optimizations}
+\author{Łukasz Czapliński}
+\hypersetup{
+ pdfauthor={Łukasz Czapliński},
+ pdftitle={ML-specific optimizations},
+ pdfkeywords={sml, ml, optimization},
+ pdfsubject={},
+ pdfcreator={Emacs 24.5.1 (Org mode 8.3.2)}, 
+ pdflang={English}}
+
+\begin{document}
+
+\maketitle
+
+\begin{frame}{What do we have today?}
+  \begin{columns}[T]
+    \begin{column}{.48\textwidth}
+      \begin{block}{Objectives}
+        \begin{itemize}
+        \item Named records
+        \item Data types
+          \note{disjoint union of types}
+        \item Pattern matching
+        \item Equality
+        \item Exceptions
+        \item Module system
+        \end{itemize}
+      \end{block}
+    \end{column}
+    \begin{column}{.48\textwidth}
+      \begin{block}{Tools}
+        \begin{itemize}
+        \item Records (tuples)
+        \item Functions
+        \item our invention
+        \end{itemize}
+      \end{block}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}[fragile]{Named records}
+  \note{Cartesian product of types}
+  \note{Need for same-length representation}
+  \begin{block}{Examples}
+\begin{minted}{sml}
+type t = { name: string, number: int }
+val t_ins = { name="Sam", number=5 }
+type ’a r = { name: string, number: ’a }
+\end{minted}
+  \end{block}
+\end{frame}
+
+\begin{frame}[fragile]{Data types}
+  \begin{block}{Examples}
+\begin{minted}{sml}
+    type posint = int (* positive integers *)
+    datatype money = COIN of posint | BILL of posint
+        | CHECK of {amount:real, from: string}
+    datatype color = RED | BLUE | GREEN | YELLOW
+    datatype ’a list = nil | :: of ’a * ’a list
+    datatype register = REG of int
+    datatype tree = LEAF of int | TREE of tree * tree
+    datatype xxx = M | N | P of int list
+    datatype xxxp = M | N | P of tree
+    datatype foo = F of int | O of tree
+    datatype yyy = W of int * int | X of real * real * real
+    datatype gen = A | B | C | D of int | E of real
+        | F of gen * gen | G of int * int * gen
+\end{minted}
+  \end{block}
+\end{frame}
+
+\begin{frame}[fragile]{Assumption 0: Pointers indistinguishable from integers}
+  \begin{block}{Tagged}
+    \note{Most verbose, default type of constructor}
+\begin{minted}{sml}
+    datatype money = COIN of posint | BILL of posint
+        | CHECK of {amount:real, from: string}
+\end{minted}
+  \end{block}
+  \begin{block}{Transparent}
+\begin{minted}{sml}
+    datatype register = REG of int
+\end{minted}
+  \end{block}
+\end{frame}
+
+\begin{frame}[fragile]{Assumption 1: Pointers distinguishable from small integers}
+  \begin{block}{Constant}
+    \note{all constructors with 0 arguments}
+\begin{minted}{sml}
+    datatype color = RED | BLUE | GREEN | YELLOW
+\end{minted}
+  \end{block}
+  \begin{block}{Better transparent constructors}
+    \note{for example xxx, there's no need to tag either (M, N: Constant, P just pointer to int list)}
+    \begin{block}{TransB}
+      \note{single value-carrying constructor applied to always-boxed type}
+      \note{consider α list vs xxx (vs xxxp)}
+\begin{minted}{sml}
+    datatype xxx = M | N | P of int list
+\end{minted}
+    \end{block}
+    \begin{block}{TransU}
+      \note{value-carrying constructor applied to always-unboxed type}
+      \note{with all other constructors boxed}
+      \note{for example foo (Appel notes that Assumption 2 is needed - why?)}
+\begin{minted}{sml}
+    datatype color = RED | BLUE | GREEN | YELLOW
+    datatype rgb_color = RGB of int * int * int
+                        | BASIC of color
+\end{minted}
+    \end{block}
+  \end{block}
+\end{frame}
+
+\begin{frame}[fragile]{Assumption 2: All pointers distinguishable from all integers}
+  \note{allows for optimized tree (unboxed LEAF, TREE as two-value record)}
+  \note{might be needed by GC}
+  \note{need to tag/untag to perform arithmetic}
+  \begin{block}{Optimization}
+\begin{minted}{sml}
+    datatype tree = LEAF of int | TREE of tree * tree
+\end{minted}
+  \end{block}
+\end{frame}
+
+\begin{frame}[fragile]{Assumption 3: Pointers to records of different length distinguishable from each other}
+\note{a lot of runtime tags, pattern-match needs to integrate with runtime closely}
+\note{allows for optimized yyy (both pointers to records)}
+\note{has some variations (like ground types being distinguishable at runtime, optimize gen)}
+  \begin{block}{Optimization}
+\begin{minted}{sml}
+    datatype yyy = W of int * int | X of real * real * real
+\end{minted}
+  \end{block}
+\end{frame}
+
+\begin{frame}[label={sec:orgheadline4}]{Conclusion}
+  \note{Diminishing returns}
+  \note{problem with optimizations and abstract types, functors, etc}
+  \begin{block}{Choosing best solution}
+    \begin{itemize}
+    \item Use only assumption 1
+    \item Constructors
+    \item Tagged
+    \item Constant
+    \item Transparent
+    \item TransB
+    \item Exceptions handled separately
+      \begin{itemize}
+      \item Variable
+      \item VariableC
+      \end{itemize}
+    \end{itemize} 
+  \end{block}
+\end{frame}
+
+\begin{frame}[fragile]{Exceptions}
+Open type (unbounded number of constructors)
+  \begin{block}{Example}
+    \note{Cannot use Assumption 1! - 'small' number of integers might not suffice}
+    \note{use Tagged type - use string ref as tag to allow printing exceptions at top-level}
+    \begin{block}{Module A}
+\begin{minted}{sml}
+exception C
+exception D = J
+\end{minted}
+    \end{block}
+    \begin{block}{Module B}
+\begin{minted}{sml}
+exception E of int
+\end{minted}
+    \end{block}
+  \end{block}
+\end{frame}
+
+\begin{frame}[fragile,label={sec:orgheadline6}]{Pattern matching}
+Match between value of expression and rule of pattern-expression list
+    \note{pattern - constant, variable, tuple or patterns, or constructor applied to pattern}
+  \begin{block}{Example}
+\begin{minted}{sml}
+case a
+    of (false, nil)   =>  nil
+    | (true, w)       =>   w
+    | (false, x::nil) =>  x::x::nil
+    | (false, y::z)   =>  z
+\end{minted}
+    \note{also, decide whether rules are exhaustive}
+  \end{block}
+  \begin{block}{Implementation}
+    \note{optimize decision tree - not an easy problem (NP-complete)}
+\begin{minted}{sml}
+let (x,y) = a in case x
+    of true => y
+    | false => case y
+                of nil    => nil
+                | xp::nil => xp::xp::nil
+                | yp::z   => z
+\end{minted}
+  \end{block}
+\end{frame}
+
+\begin{frame}[fragile]{Equality}
+  \note{Two values must be of the same type}
+  \begin{block}{Structural equality}
+    \note{two lists containing same values are equal}
+    \note{references must have the same address - simplifies cycles}
+\begin{minted}{sml}
+[1,2,3] = [1,2,3] (* true *)
+ref 5 = ref 5 (* false *)
+\end{minted}
+  \end{block}
+  \begin{block}{Enter polymorphism}
+    \note{type of compared values might not be known at compile time, ex: member}
+    \note{need size of things at runtime! or add equality to every eqtype}
+    \note{that's the only place where this kind of tagging is need in SMLNJ}
+    \note{also, that's expensive.}
+\begin{minted}{sml}
+fun member(x, a::rest) = x=a orelse member(x,rest)
+    | member(x, nil) = false
+\end{minted}
+  \end{block}
+\end{frame}
+
+\begin{frame}[fragile]{Unboxed updates}
+  \note{it might be useful for compiler later to know whether ref cell will contain only integers}
+  \note{also, it's useful to know if update will only write integer values}
+  \note{conservative approach}
+  \begin{block}{Example}
+\begin{minted}{sml}
+datatype color = Red | Green | Blue (* unboxed *)
+val x = ref Red
+val _ = x := Green
+\end{minted}
+  \end{block}
+\end{frame}
+
+\begin{frame}[fragile]{Modules and Functors}
+\note{Help with structuring large programs}
+\note{Separate compilation units}
+\note{Generic library units}
+\begin{block}{Example}
+\begin{minted}{sml}
+structure Stack1 =
+    struct type ’a stack = ’a list
+    fun push(a,s) = a::s
+    fun top(a::rest) = a | top(nil) = raise Empty
+    fun pop(a::rest) = rest | pop(nil) = raise Empty
+    val empty = nil
+end
+\end{minted}
+\end{block}
+\end{frame}
+
+\begin{frame}[fragile]{Signatures}
+  \note{Can export only some declarations using signatures}
+  \begin{block}{Example}
+\begin{minted}{sml}
+signature STACK =
+    sig   type ’a stack
+    val empty : ’a stack
+    val push: ’a * ’a stack -> ’a stack
+    val top : ’a stack -> ’a
+    val pop : ’a stack -> ’a stack
+end
+
+structure Stack2 : STACK =
+    struct datatype ’a stack = empty
+                            | push of ’a * ’a stack
+    fun top(push(a,rest)) = a
+    fun pop(push(a,rest)) = rest
+end
+\end{minted}
+  \end{block}
+\end{frame}
+
+\begin{frame}[fragile]{Functors}
+  \note{Functors are modules parametrized by signatures}
+  \begin{block}{Example}
+\begin{minted}{sml}
+functor F(S : STACK) = struct  
+    val em = S.empty
+end
+structure T = F(Stack2)
+\end{minted}
+  \end{block}
+\end{frame}
+
+\begin{frame}{Implementation}
+  \begin{itemize}
+\item{Modules $\rightarrow$ Records}
+\note{Stack1 $\rightarrow$ (Empty, push, top, pop, empty)}
+\note{STACK $\rightarrow$ (Empty, empty, push, top, pop)}
+\note{application of STACK to Stack1 requires reordering fields in record, based on names}
+\note{application of STACK to Stack2 requires removal of field `extra` -> though it still needs to be evaluated}
+\note{also, it requires turning push into function (from data constructor)}
+\item{Functors $\rightarrow$ Functions}
+\note{thinning}
+\end{itemize}
+Linker and runtime system have no idea of module system!
+\end{frame}
+
+\begin{frame}[fragile]{Our approach and problems}
+ \begin{minted}{ocaml}
+type con =
+    | C_Tagged of int
+    | C_Transparent
+    | C_TransU
+    | C_TransB
+\end{minted}
+\end{frame}
+\end{document}
+
+% Local Variables:
+% TeX-engine: xetex
+% TeX-command-extra-options: "-shell-escape"
+% End:
