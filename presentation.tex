@@ -325,19 +325,9 @@ case a
     | (false, x::nil) =>  x::x::nil
     | (false, y::z)   =>  z
 \end{minted}
-    \note{also, decide whether rules are exhaustive}
   \end{block}
-  \begin{block}{Implementation}
     \note{optimize decision tree --- not an easy problem (NP-complete)}
-\begin{minted}{sml}
-let (x,y) = a in case x
-    of true => y
-    | false => case y
-                of nil    => nil
-                | xp::nil => xp::xp::nil
-                | yp::z   => z
-\end{minted}
-  \end{block}
+    \note{also, decide whether rules are exhaustive}
 \end{frame}
 
 \begin{frame}[fragile,label=Equality]{Equality}
