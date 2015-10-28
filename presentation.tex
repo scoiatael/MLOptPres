@@ -2,7 +2,6 @@
 \documentclass[presentation]{beamer}
 \usetheme{Madrid}
 
-\beamertemplatenavigationsymbolsempty
 
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
@@ -56,6 +55,7 @@
     \begin{column}{.48\textwidth}
       \begin{block}{Tools}
         \begin{itemize}
+        \item Type system
         \item Records (tuples)
         \item Functions
         \item our invention
@@ -76,9 +76,10 @@ val t_ins = { name="Sam", number=5 }
 type ’a r = { name: string, number: ’a }
 \end{minted}
   \end{block}
+  \pause
   \begin{block}{Implementation}
   \pause
-    Simple records!
+    Simple records
   \end{block}
 \end{frame}
 
@@ -139,18 +140,20 @@ structure T = F(Stack2)
 \end{frame}
 
 \begin{frame}{Implementation}
-  \begin{itemize}
-    \pause
-\item{Modules $\rightarrow$ Records}
-\note{Stack1 $\rightarrow$ (Empty, push, top, pop, empty)}
-\note{STACK $\rightarrow$ (Empty, empty, push, top, pop)}
-\note{application of STACK to Stack1 requires reordering fields in record, based on names}
-\note{application of STACK to Stack2 requires removal of field `extra` -> though it still needs to be evaluated}
-\note{also, it requires turning push into function (from data constructor)}
-\item{Functors $\rightarrow$ Functions}
-\note{thinning}
-\end{itemize}
-Linker and runtime system have no idea of module system!
+  \pause
+  \begin{block}{}
+    \begin{itemize}
+    \item{Modules $\rightarrow$ Records}
+      \note{Stack1 $\rightarrow$ (Empty, push, top, pop, empty)}
+      \note{STACK $\rightarrow$ (Empty, empty, push, top, pop)}
+      \note{application of STACK to Stack1 requires reordering fields in record, based on names}
+      \note{application of STACK to Stack2 requires removal of field `extra` -> though it still needs to be evaluated}
+      \note{also, it requires turning push into function (from data constructor)}
+    \item{Functors $\rightarrow$ Functions}
+      \note{thinning}
+    \end{itemize}
+    Linker and runtime system have no idea of module system
+  \end{block} 
 \end{frame}
 
 \begin{frame}[fragile]{Data types}
@@ -311,10 +314,14 @@ exception D = J
 exception E of int
 \end{minted}
     \end{block}
+    \pause
+    \begin{block}{Implementation}
+      Tagged type 
+    \end{block}
   \end{block}
 \end{frame}
 
-\begin{frame}[fragile,label={sec:orgheadline6}]{Pattern matching}
+\begin{frame}[fragile]{Pattern matching}
 Match between value of expression and rule of pattern-expression list
     \note{pattern - constant, variable, tuple or patterns, or constructor applied to pattern}
   \begin{block}{Example}
@@ -326,7 +333,12 @@ case a
     | (false, y::z)   =>  z
 \end{minted}
   \end{block}
-    \note{optimize decision tree --- not an easy problem (NP-complete)}
+  \pause
+  \begin{block}{Implementation}
+    Use special instruction: decon.
+    Apply one level of deconstruction per switch.
+  \end{block}
+  \note{optimize decision tree --- not an easy problem (NP-complete)}
     \note{also, decide whether rules are exhaustive}
 \end{frame}
 
@@ -351,6 +363,11 @@ fun member(x, a::rest) = x=a orelse member(x,rest)
     | member(x, nil) = false
 \end{minted}
   \end{block}
+  \pause
+  \begin{block}{Implementation}
+    Use runtime tags to compare records field-for-field.
+    Recall that's assumption 3!
+  \end{block}
 \end{frame}
 
 \begin{frame}[fragile]{Unboxed updates}
@@ -364,10 +381,14 @@ val x = ref Red
 val _ = x := Green
 \end{minted}
   \end{block}
+  \pause
+  \begin{block}{Implementation}
+    Use types to conservatively mark safe operations to use unboxed instructions.
+  \end{block}
 \end{frame}
 
 \begin{frame}[fragile]{Our approach and problems}
-  $\ldots$ TBA $\ldots$
+  $\ldots$ Look at the code $\ldots$
 \end{frame}
 \end{document}
 
